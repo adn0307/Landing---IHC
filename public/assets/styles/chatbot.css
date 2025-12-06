@@ -419,5 +419,27 @@ body { background: var(--bg); color: #fff; height: 100vh; overflow: hidden; }
 
 }
 
+/* ⭐ SISTEMA DE CALIFICACIÓN (ESTRELLAS) ⭐ */
+
+.rating-box {
+    margin-top: 6px;
+    user-select: none;
+    display: flex;
+    gap: 4px;
+}
+
+.rating-star {
+    font-size: 20px;
+    cursor: pointer;
+    padding: 2px;
+    color: gold;
+    transition: transform 0.15s ease;
+}
+
+.rating-star:hover {
+    transform: scale(1.25);
+}
+
+
 
 

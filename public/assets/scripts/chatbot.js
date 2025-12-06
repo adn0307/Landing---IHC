@@ -48,12 +48,14 @@ function enviarRespuestaBot(texto) {
     chat.messages.push({
         who: "bot",
         text: texto,
-        ts: Date.now()
+        ts: Date.now(),
+        rating: 0
     });
 
     saveAll();
     renderCurrentChat();
 }
+
 
 // CREAR CHAT
 function createNewChat() {
@@ -122,7 +124,7 @@ if (chat.messages.length === 0) {
 }
 
 
-    chat.messages.forEach(m => appendMessageToWindow(m.text, m.who));
+    chat.messages.forEach(m => appendMessageToWindow(m.text, m.who, m));
 
     setTimeout(() => {
         chatWindow.scrollTop = chatWindow.scrollHeight;
@@ -142,7 +144,7 @@ function hideWelcome() {
 }
 
 
-function appendMessageToWindow(text, who) {
+function appendMessageToWindow(text, who, msgObj = null) {
     const wrapper = document.createElement("div");
     wrapper.className = "message " + (who === "user" ? "user" : "bot");
 
@@ -150,9 +152,35 @@ function appendMessageToWindow(text, who) {
     p.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
     wrapper.appendChild(p);
 
+    // ⭐ SOLO PARA MENSAJES DEL BOT
+    if (who === "bot") {
+        const ratingBox = document.createElement("div");
+        ratingBox.className = "rating-box";
+
+        const currentRating = msgObj?.rating || 0;
+
+        for (let i = 1; i <= 5; i++) {
+            const star = document.createElement("span");
+            star.className = "rating-star";
+            star.textContent = i <= currentRating ? "★" : "☆";
+            star.dataset.value = i;
+
+            star.addEventListener("click", () => {
+                msgObj.rating = i;
+                saveAll();
+                renderCurrentChat();
+            });
+
+            ratingBox.appendChild(star);
+        }
+
+        wrapper.appendChild(ratingBox);
+    }
+
     chatWindow.appendChild(wrapper);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 }
+
 
 // ===== DETECTOR AUTOMÁTICO DE LENGUAJE ===== //
 function detectarLenguaje(code) {
@@ -241,7 +269,7 @@ function enviarMensaje() {
     const chat = chats.find(c => c.id === currentChatId);
     if (!chat) return;
 
-    chat.messages.push({ who: "user", text, ts: Date.now() });
+    chat.messages.push({ who: "user", text, ts: Date.now(), rating: 0 });
 
     if (chat.title === "Chat sin título" && text.length > 2) {
         chat.title = text.length > 28 ? text.slice(0, 28) + "..." : text;
@@ -254,7 +282,7 @@ function enviarMensaje() {
     // 🔥 4. Respuesta normal (si no fue código ni comando)
     setTimeout(() => {
         const botResp = getBotResponse(text);
-        chat.messages.push({ who: "bot", text: botResp, ts: Date.now() });
+        chat.messages.push({ who: "bot", text: botResp, ts: Date.now(), rating: 0});
         saveAll();
         renderCurrentChat();
     }, 500);
@@ -322,15 +350,15 @@ function accionRapida(tipo) {
         traducir: "Quiero traducir código"
     };
 
-    chat.messages.push({ who: "user", text: map[tipo], ts: Date.now() });
+    chat.messages.push({ who: "user", text: map[tipo], ts: Date.now(), rating: 0});
     saveAll();
     renderCurrentChat();
     hideWelcome();
 
     setTimeout(() => {
-        if (tipo === "analizar") chat.messages.push({ who: "bot", text: "Perfecto, envía el código.", ts: Date.now() });
-        if (tipo === "comparar") chat.messages.push({ who: "bot", text: "Envíame ambos códigos.", ts: Date.now() });
-        if (tipo === "traducir") chat.messages.push({ who: "bot", text: "¿De qué lenguaje a cuál?", ts: Date.now() });
+        if (tipo === "analizar") chat.messages.push({ who: "bot", text: "Perfecto, envía el código.", ts: Date.now(),rating: 0 });
+        if (tipo === "comparar") chat.messages.push({ who: "bot", text: "Envíame ambos códigos.", ts: Date.now(),rating: 0 });
+        if (tipo === "traducir") chat.messages.push({ who: "bot", text: "¿De qué lenguaje a cuál?", ts: Date.now(),rating: 0 });
 
         saveAll();
         renderCurrentChat();
