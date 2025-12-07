@@ -11,7 +11,6 @@ const starBtn = document.getElementById("starCurrent");
 const deleteBtn = document.getElementById("deleteChat");
 const hamburger = document.getElementById("hamburger");
 const sidebar = document.getElementById("sidebar");
-
 const userBox = document.getElementById("userBox");
 const userMenu = document.getElementById("userMenu");
 const logoutBtn = document.getElementById("logoutBtn");
@@ -49,12 +48,14 @@ function enviarRespuestaBot(texto) {
     chat.messages.push({
         who: "bot",
         text: texto,
-        ts: Date.now()
+        ts: Date.now(),
+        rating: 0
     });
 
     saveAll();
     renderCurrentChat();
 }
+
 
 // CREAR CHAT
 function createNewChat() {
@@ -73,6 +74,33 @@ function createNewChat() {
     renderCurrentChat();
 }
 
+function buscarEnChat(palabra) {
+    if (!palabra) return;
+
+    const mensajes = chatWindow.querySelectorAll(".message div");
+
+    let firstMatch = null;
+
+    mensajes.forEach(msg => {
+        const texto = msg.innerHTML.replace(/<span class="highlight-search">|<\/span>/g, "");
+
+        msg.innerHTML = texto;
+
+        if (texto.toLowerCase().includes(palabra.toLowerCase())) {
+            if (!firstMatch) firstMatch = msg;
+
+            const regex = new RegExp(`(${palabra})`, "gi");
+            msg.innerHTML = texto.replace(regex, `<span class="highlight-search">$1</span>`);
+        }
+    });
+
+    if (firstMatch) {
+        firstMatch.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+        alert("No se encontró esa palabra en el chat.");
+    }
+}
+
 // RENDERIZAR CHAT
 function renderCurrentChat() {
     const chat = chats.find(c => c.id === currentChatId);
@@ -80,38 +108,43 @@ function renderCurrentChat() {
     chatWindow.innerHTML = "";
 
     if (!chat) {
-        showWelcome();
-        starBtn.textContent = "☆";
-        return;
-    }
+    showWelcome();
+    starBtn.textContent = "☆";
+    return;
+}
 
-    starBtn.textContent = chat.fav ? "★" : "☆";
+starBtn.textContent = chat.fav ? "★" : "☆";
 
-    if (chat.messages.length === 0) {
-        showWelcome();
-        return;
-    }
-
+if (chat.messages.length === 0) {
+    showWelcome();
+    chatWindow.innerHTML = "";
+    return;
+} else {
     hideWelcome();
+}
 
-    chat.messages.forEach(m => appendMessageToWindow(m.text, m.who));
+
+    chat.messages.forEach(m => appendMessageToWindow(m.text, m.who, m));
 
     setTimeout(() => {
         chatWindow.scrollTop = chatWindow.scrollHeight;
     }, 30);
 }
 
+
 function showWelcome() {
+    // Mostrar el mensaje de bienvenida (no ocultar chat-controls ni input)
     welcomeScreen.style.display = "block";
-    chatWindow.style.display = "block";
-    chatWindow.innerHTML = "";
-}
-function hideWelcome() {
-    welcomeScreen.style.display = "none";
-    chatWindow.style.display = "block";
+    // vaciar la ventana de chat si no hay chat activo (opcional)
+    // chatWindow.innerHTML = "";
 }
 
-function appendMessageToWindow(text, who) {
+function hideWelcome() {
+    welcomeScreen.style.display = "none";
+}
+
+
+function appendMessageToWindow(text, who, msgObj = null) {
     const wrapper = document.createElement("div");
     wrapper.className = "message " + (who === "user" ? "user" : "bot");
 
@@ -119,9 +152,35 @@ function appendMessageToWindow(text, who) {
     p.innerHTML = escapeHtml(text).replace(/\n/g, "<br>");
     wrapper.appendChild(p);
 
+    // ⭐ SOLO PARA MENSAJES DEL BOT
+    if (who === "bot") {
+        const ratingBox = document.createElement("div");
+        ratingBox.className = "rating-box";
+
+        const currentRating = msgObj?.rating || 0;
+
+        for (let i = 1; i <= 5; i++) {
+            const star = document.createElement("span");
+            star.className = "rating-star";
+            star.textContent = i <= currentRating ? "★" : "☆";
+            star.dataset.value = i;
+
+            star.addEventListener("click", () => {
+                msgObj.rating = i;
+                saveAll();
+                renderCurrentChat();
+            });
+
+            ratingBox.appendChild(star);
+        }
+
+        wrapper.appendChild(ratingBox);
+    }
+
     chatWindow.appendChild(wrapper);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 }
+
 
 // ===== DETECTOR AUTOMÁTICO DE LENGUAJE ===== //
 function detectarLenguaje(code) {
@@ -195,7 +254,7 @@ function enviarMensaje() {
             return;
         }
 
-        // 🔥 Lenguaje detectado correctamente
+        //  Lenguaje detectado correctamente
         enviarRespuestaBot(`🔍 Detecté que este código está escrito en **${lenguaje}**.\nAquí tienes la explicación:`);
 
         // Aquí puedes invocar tu función del bot para explicar el código:
@@ -205,12 +264,12 @@ function enviarMensaje() {
     }
 
 
-    // 🔥 3. Guardia de chat
+    //  3. Guardia de chat
     if (!currentChatId) createNewChat();
     const chat = chats.find(c => c.id === currentChatId);
     if (!chat) return;
 
-    chat.messages.push({ who: "user", text, ts: Date.now() });
+    chat.messages.push({ who: "user", text, ts: Date.now(), rating: 0 });
 
     if (chat.title === "Chat sin título" && text.length > 2) {
         chat.title = text.length > 28 ? text.slice(0, 28) + "..." : text;
@@ -220,10 +279,10 @@ function enviarMensaje() {
     renderCurrentChat();
     mensajeInput.value = "";
 
-    // 🔥 4. Respuesta normal (si no fue código ni comando)
+    // 4. Respuesta normal (si no fue código ni comando)
     setTimeout(() => {
         const botResp = getBotResponse(text);
-        chat.messages.push({ who: "bot", text: botResp, ts: Date.now() });
+        chat.messages.push({ who: "bot", text: botResp, ts: Date.now(), rating: 0});
         saveAll();
         renderCurrentChat();
     }, 500);
@@ -291,15 +350,15 @@ function accionRapida(tipo) {
         traducir: "Quiero traducir código"
     };
 
-    chat.messages.push({ who: "user", text: map[tipo], ts: Date.now() });
+    chat.messages.push({ who: "user", text: map[tipo], ts: Date.now(), rating: 0});
     saveAll();
     renderCurrentChat();
     hideWelcome();
 
     setTimeout(() => {
-        if (tipo === "analizar") chat.messages.push({ who: "bot", text: "Perfecto, envía el código.", ts: Date.now() });
-        if (tipo === "comparar") chat.messages.push({ who: "bot", text: "Envíame ambos códigos.", ts: Date.now() });
-        if (tipo === "traducir") chat.messages.push({ who: "bot", text: "¿De qué lenguaje a cuál?", ts: Date.now() });
+        if (tipo === "analizar") chat.messages.push({ who: "bot", text: "Perfecto, envía el código.", ts: Date.now(),rating: 0 });
+        if (tipo === "comparar") chat.messages.push({ who: "bot", text: "Envíame ambos códigos.", ts: Date.now(),rating: 0 });
+        if (tipo === "traducir") chat.messages.push({ who: "bot", text: "¿De qué lenguaje a cuál?", ts: Date.now(),rating: 0 });
 
         saveAll();
         renderCurrentChat();
@@ -400,6 +459,8 @@ function goAjustes() {
 // EVENTOS
 document.getElementById("btnNuevo").addEventListener("click", () => {
     createNewChat();
+    hideWelcome();
+    renderCurrentChat();
     closeListPanel();
 });
 
@@ -511,11 +572,11 @@ function procesarComandoDeVoz(texto) {
         t.includes("quiero saber mi información")) {
 
         const infoUsuario = `
-📄 Información de usuario
-• Nombre: admin1
-• Correo: admin1@safertech.com
-• Rol: Estudiante
-• Estado: Activo
+        📄 Información de usuario
+        • Nombre: admin1
+        • Correo: admin1@safertech.com
+        • Rol: Estudiante
+        • Estado: Activo
         `.trim();
 
         enviarRespuestaBot(infoUsuario);
@@ -582,3 +643,16 @@ function procesarComandoDeVoz(texto) {
 
     return false;
 }
+
+const searchInput = document.getElementById("searchChatInput");
+const searchBtn = document.getElementById("searchChatBtn");
+
+searchBtn.addEventListener("click", () => {
+    buscarEnChat(searchInput.value.trim());
+});
+
+searchInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        buscarEnChat(searchInput.value.trim());
+    }
+});
